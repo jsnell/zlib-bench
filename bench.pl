@@ -13,6 +13,7 @@ bench.pl [options]
  Options:
   --help                Print a help message
   --compress-levels=... Comma-separated list of compression levels to use
+  --output-file=...     File (- for stdout) where results are printed to
   --output-format=...   Format to output results in (pretty, json)
   --recompile           If passed, recompile all zlib versions before test
   --runs=...            Number of runs for each benchmark
@@ -24,6 +25,7 @@ bench.pl [options]
 use strict;
 
 use BSD::Resource qw(times);
+use Fatal qw(open);
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use JSON;
@@ -203,9 +205,11 @@ sub benchmark_all {
 }
 
 sub pprint {
-    my ($input) = @_;
+    my ($output_file, $input) = @_;
     my @versions = @{$input->{versions}};
     my %results = %{$input->{results}};
+
+    local *STDOUT = $output_file;
 
     printf "%20s ", '';        
     for my $version (@versions) {
@@ -247,6 +251,7 @@ sub pprint {
 
 sub main {
     my $help = 0;
+    my $output_file = *STDOUT;
 
     Getopt::Long::Configure('auto_help');
     if (!GetOptions(
@@ -254,6 +259,11 @@ sub main {
                  @compress_levels = split /,/, $_[1];
                  for (@compress_levels) {
                      die "Invalid compression level $_\n" if /\D/;
+                 }
+             },
+             "output-file=s" => sub {
+                 if ($_[1] ne '-') {
+                     open $output_file, ">", $_[1];
                  }
              },
              "output-format=s" => \$output_format,
@@ -273,9 +283,9 @@ sub main {
     my $results = benchmark_all;
 
     if ($output_format eq 'pretty') {
-        pprint $results;
+        pprint $output_file, $results;
     } else {
-        print encode_json $results;
+        print $output_file encode_json $results;
     }
 }
 
