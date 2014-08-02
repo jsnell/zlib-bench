@@ -146,27 +146,26 @@ sub benchmark_all {
     my %results = ();
 
     # Compression benchmarks
-    for my $version (@versions) {
-        for my $level (@compress_levels) {
-            for my $input (glob "corpus/[a-z]*") {
-                $input =~ m{.*/(.*)} or next;
-                my $id = "compress $1 -$level (x $compress_iters)";
+    for my $level (@compress_levels) {
+        for my $input (glob "corpus/[a-z]*") {
+            $input =~ m{.*/(.*)} or next;
+            my $id = "compress $1 -$level (x $compress_iters)";
+            trace "Testing '$id' ";
 
-                trace "Testing '$id' ";
+            $results{$id}{input}{size} = (-s $input);
 
-                # Warm up
-                benchmark_compress $version->{dir}, $input, $level, 1;
-
-                $results{$id}{input}{size} = (-s $input);
-
-                for (1..$runs) {
+            for (1..$runs) {
+                for my $version (@versions) {
                     trace ".";
+
+                    # Warm up
+                    benchmark_compress $version->{dir}, $input, $level, 1;
                     my $result = benchmark_compress $version->{dir}, $input, $level, $compress_iters;
                     push @{$results{$id}{output}{"$version->{id}"}}, $result;
                 }
-
-                trace "\n";
             }
+
+            trace "\n";
         }
     }
 
@@ -182,26 +181,23 @@ sub benchmark_all {
         close $fh;
     }
 
-    for my $version (@versions) {
-        for my $input (glob "corpus/[a-z]*") {
-            $input =~ m{.*/(.*)} or next;
-            my $id = "decompress $1 (x $decompress_iters)";
+    for my $input (glob "corpus/[a-z]*") {
+        $input =~ m{.*/(.*)} or next;
+        my $id = "decompress $1 (x $decompress_iters)";
+        trace "Testing '$id' ";
 
-            if (!$quiet) {
-                trace "Testing '$id' ";
-            }
-
-            # Warm up
-            benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, 1;
-
-            for (1..$runs) {
+        for (1..$runs) {
+            for my $version (@versions) {
                 trace ".";
+
+                # Warm up
+                benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, 1;
                 my $result = benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, $decompress_iters;
                 push @{$results{$id}{output}{"$version->{id}"}}, $result;
             }
-
-            trace "\n";
         }
+
+        trace "\n";
     }
 
     for my $input_results (values %results) {
