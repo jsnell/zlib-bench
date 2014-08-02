@@ -192,7 +192,12 @@ sub benchmark_all {
     }
 
     return {
-        versions => [ map { $_->{id} } @versions ],
+        versions => [
+            map {
+                { id => $_->{id},
+                  commit => qx(cd $_->{dir} && git rev-parse HEAD)
+                }
+            } @versions ],
         results => \%results
     }
 }
@@ -204,7 +209,7 @@ sub pprint {
 
     printf "%20s ", '';        
     for my $version (@versions) {
-        printf "%-22s ", $version;        
+        printf "%-22s ", $version->{id};
     }
 
     for my $key (sort keys %results) {
@@ -214,7 +219,8 @@ sub pprint {
         if ($benchmark{input}{size}) {
             printf "\n%20s ", "Compression ratio:";
             for my $version (@versions) {
-                my $output_size = $benchmark{output}{$version}{output_size}{mean};
+                my $id = $version->{id};
+                my $output_size = $benchmark{output}{$id}{output_size}{mean};
                 my $input_size = $benchmark{input}{size};
                 printf("%5.2f %17s",
                        $output_size / $input_size,
@@ -224,8 +230,9 @@ sub pprint {
 
         printf "\n%20s ", "Execution time [s]:";
         for my $version (@versions) {
-            my $time = $benchmark{output}{$version}{time}{mean};
-            my $error = $benchmark{output}{$version}{time}{error};
+            my $id = $version->{id};
+            my $time = $benchmark{output}{$id}{time}{mean};
+            my $error = $benchmark{output}{$id}{time}{error};
             my $basetime = $benchmark{output}{'baseline'}{time}{mean};
             printf("%5.2f \x{00b1} %4.2f (%6.2f%%) ",
                    $time,
