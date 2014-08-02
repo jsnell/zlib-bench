@@ -12,5 +12,7 @@ benchmark id in reports. A small sample of different files is included:
 - jpeg: A high resolution jpeg file
   (source: A random photo from my camera,
    license: hereby released to public domain)
+- pngpixels: Pixel data after png filter application (for high resolution image)
+  (source, license: Same as for the jpeg file)
 
 
