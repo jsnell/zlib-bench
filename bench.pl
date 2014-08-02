@@ -253,7 +253,7 @@ sub pprint {
 
 sub main {
     my $help = 0;
-    my $output_file = *STDOUT;
+    my $output_file;
     my $read_json = '';
 
     Getopt::Long::Configure('auto_help');
@@ -280,7 +280,8 @@ sub main {
 
     die "--output-format should be 'pretty' or 'json'" if $output_format !~ /^(pretty)|(json)$/;
 
-    binmode(STDOUT, ":utf8");
+    $output_file //= *STDOUT;
+    binmode($output_file, ":utf8");
 
     my $results;
 
