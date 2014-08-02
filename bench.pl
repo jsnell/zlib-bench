@@ -15,6 +15,7 @@ bench.pl [options]
   --compress-levels=... Comma-separated list of compression levels to use
   --output-file=...     File (- for stdout) where results are printed to
   --output-format=...   Format to output results in (pretty, json)
+  --read-json=...       Don't run benchmarks, but read results from this file
   --recompile           If passed, recompile all zlib versions before test
   --runs=...            Number of runs for each benchmark
   --run-size=...        Number of times each file is compressed /
@@ -26,6 +27,7 @@ use strict;
 
 use BSD::Resource qw(times);
 use Fatal qw(open);
+use File::Slurp;
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use JSON;
@@ -252,6 +254,7 @@ sub pprint {
 sub main {
     my $help = 0;
     my $output_file = *STDOUT;
+    my $read_json = '';
 
     Getopt::Long::Configure('auto_help');
     if (!GetOptions(
@@ -267,6 +270,7 @@ sub main {
                  }
              },
              "output-format=s" => \$output_format,
+             "read-json=s" => \$read_json,
              "recompile" => \$recompile,
              "run-size=i" => \$run_size,
              "runs=i"  => \$runs,
@@ -278,9 +282,16 @@ sub main {
 
     binmode(STDOUT, ":utf8");
 
-    init;
-    fetch_and_compile_all;
-    my $results = benchmark_all;
+    my $results;
+
+    if ($read_json) {
+        my $data = read_file $read_json;
+        $results = decode_json $data;
+    } else {
+        init;
+        fetch_and_compile_all;
+        $results = benchmark_all;
+    }
 
     if ($output_format eq 'pretty') {
         pprint $output_file, $results;
