@@ -103,9 +103,9 @@ sub fetch_and_compile_all {
     for my $version (@versions) {
         if ($recompile or
             !-f "$version->{dir}/minigzip64") {
-            trace "Checking out $version->{id}";
+            trace "Checking out $version->{id}\n";
             checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
-            trace "Compiling $version->{id}";
+            trace "Compiling $version->{id}\n";
             compile $version->{dir};
         }
     }
