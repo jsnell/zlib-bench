@@ -4,10 +4,13 @@ each specified compression level). The name of the file is used as the
 benchmark id in reports. A small sample of different files is included:
 
 - html: A HTML file containing the Count of Monte Cristo
-  (source: Project Gutenberg)
+  (source: Project Gutenberg,
+   license: Project Gutenberg license)
 - executable: A x86-64 executable file
-  (source: gdb, version 7.4.1-debian)
+  (source: gdb, version 7.4.1-debian,
+   license: GPLv3+)
 - jpeg: A high resolution jpeg file
-  (source: A random photo from my camera, hereby released to public domain)
+  (source: A random photo from my camera,
+   license: hereby released to public domain)
 
 
