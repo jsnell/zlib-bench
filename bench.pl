@@ -156,8 +156,9 @@ sub benchmark_all {
     # First create compressed files.
     my %compressed = ();
     for my $input (glob "corpus/[a-z]*") {
-        my ($fh, $filename) = tempfile();
-        $compressed{$input}{tmpfile} = $filename;
+        my ($fh) = File::Temp->new();
+        $compressed{$input}{fh} = $fh;
+        $compressed{$input}{tmpfile} = $fh->filename;
         print $fh qx"$versions[0]{dir}/minigzip64 < $input";
         close $fh;
     }
