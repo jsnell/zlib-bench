@@ -1,11 +1,34 @@
 #!/usr/bin/perl -w
 
+=pod
+
+=head1 NAME
+
+bench.pl - Benchmark zlib implementations
+
+=head1 SYNOPSIS
+
+bench.pl [options]
+
+ Options:
+  --help                Print a help message
+  --compress-levels=... Comma-separated list of compression levels to use
+  --output-format=...   Format to output results in (pretty, json)
+  --recompile           If passed, recompile all zlib versions before test
+  --runs=...            Number of runs for each benchmark
+  --run-size=...        Number of times each file is compressed /
+                        decompressed in one benchmark run
+
+=cut
+
 use strict;
 
 use BSD::Resource qw(times);
 use File::Temp qw(tempfile);
+use Getopt::Long;
 use JSON;
 use List::Util qw(sum);
+use Pod::Usage;
 use Statistics::Descriptive;
 
 # Versions to test
@@ -21,14 +44,19 @@ my @compress_levels = qw(1 3 5 9);
 # Number of iterations of each benchmark to run (in addition to a single
 # warmup run).
 my $runs = 5;
+
 # Number of compressions / decompressions to do in each run
 my $run_size = 10;
+
+# If true, recompile all the zlib versions before running benchmark
+my $recompile = 0;
+
+# pprint or json
+my $output_format = "pretty";
 
 sub checkout {
     my ($id, $repository, $commit_or_branch) = @_;
     my $dir = "zlib.$id";
-
-    return $dir;
 
     if (-d $dir) {
         if (system "cd $dir && git reset --hard $commit_or_branch") {
@@ -49,15 +77,19 @@ sub compile {
     system "cd $dir && ./configure && make";
 }
 
+sub init {
+    for my $version (@versions) {
+        $version->{dir} = "zlib.$version->{id}";
+    }
+}
+
 sub fetch_and_compile_all {
     for my $version (@versions) {
-        $version->{dir} = checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
-    }
-
-    return;
-
-    for my $version (@versions) {
-        compile $version->{dir};
+        if ($recompile or
+            !-f "$version->{dir}/minigzip64") {
+            checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
+            compile $version->{dir};
+        }
     }
 }
 
@@ -172,7 +204,7 @@ sub pprint {
 
     printf "%20s ", '';        
     for my $version (@versions) {
-        printf "%-15s ", $version;        
+        printf "%-22s ", $version;        
     }
 
     for my $key (sort keys %results) {
@@ -184,18 +216,20 @@ sub pprint {
             for my $version (@versions) {
                 my $output_size = $benchmark{output}{$version}{output_size}{mean};
                 my $input_size = $benchmark{input}{size};
-                printf("%5.2f %10s",
+                printf("%5.2f %17s",
                        $output_size / $input_size,
                        '');
             }
         }
 
-        printf "\n%20s ", "Execution time:";
+        printf "\n%20s ", "Execution time [s]:";
         for my $version (@versions) {
             my $time = $benchmark{output}{$version}{time}{mean};
+            my $error = $benchmark{output}{$version}{time}{error};
             my $basetime = $benchmark{output}{'baseline'}{time}{mean};
-            printf("%5.2f (%6.2f%%) ",
+            printf("%5.2f \x{00b1} %4.2f (%6.2f%%) ",
                    $time,
+                   $error,
                    $time / $basetime * 100, 
                    '');
         }
@@ -204,11 +238,38 @@ sub pprint {
     printf "\n";
 }
 
-fetch_and_compile_all;
-my $results = benchmark_all;
+sub main {
+    my $help = 0;
 
-if (1) {
-    pprint $results;
-} else {
-    print encode_json $results;
+    Getopt::Long::Configure('auto_help');
+    if (!GetOptions(
+             "compress-levels=s" => sub {
+                 @compress_levels = split /,/, $_[1];
+                 for (@compress_levels) {
+                     die "Invalid compression level $_\n" if /\D/;
+                 }
+             },
+             "output-format=s" => \$output_format,
+             "recompile" => \$recompile,
+             "run-size=i" => \$run_size,
+             "runs=i"  => \$runs,
+        )) {
+        exit(1);
+    }
+
+    die "--output-format should be 'pretty' or 'json'" if $output_format !~ /^(pretty)|(json)$/;
+
+    binmode(STDOUT, ":utf8");
+
+    init;
+    fetch_and_compile_all;
+    my $results = benchmark_all;
+
+    if ($output_format eq 'pretty') {
+        pprint $results;
+    } else {
+        print encode_json $results;
+    }
 }
+
+main;
