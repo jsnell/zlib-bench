@@ -11,15 +11,17 @@ bench.pl - Benchmark zlib implementations
 bench.pl [options]
 
  Options:
-  --help                Print a help message
-  --compress-levels=... Comma-separated list of compression levels to use
-  --output-file=...     File (- for stdout) where results are printed to
-  --output-format=...   Format to output results in (pretty, json)
-  --read-json=...       Don't run benchmarks, but read results from this file
-  --recompile           If passed, recompile all zlib versions before test
-  --runs=...            Number of runs for each benchmark
-  --run-size=...        Number of times each file is compressed /
-                        decompressed in one benchmark run
+  --help                 Print a help message
+  --compress-iters=...   Number of times each file is compressed in one
+                         benchmark run
+  --compress-levels=...  Comma-separated list of compression levels to use
+  --decompress-iters=... Number of times each file is compressed in one
+                         benchmark run
+  --output-file=...      File (- for stdout) where results are printed to
+  --output-format=...    Format to output results in (pretty, json)
+  --read-json=...        Don't run benchmarks, but read results from this file
+  --recompile            If passed, recompile all zlib versions before test
+  --runs=...             Number of runs for each benchmark
 
 =cut
 
@@ -50,7 +52,8 @@ my @compress_levels = qw(1 3 5 9);
 my $runs = 5;
 
 # Number of compressions / decompressions to do in each run
-my $run_size = 10;
+my $compress_iters = 10;
+my $decompress_iters = 50;
 
 # If true, recompile all the zlib versions before running benchmark
 my $recompile = 0;
@@ -136,7 +139,7 @@ sub benchmark_all {
         for my $level (@compress_levels) {
             for my $input (glob "corpus/[a-z]*") {
                 $input =~ m{.*/(.*)} or next;
-                my $id = "compress $1 -$level";
+                my $id = "compress $1 -$level (x $compress_iters)";
 
                 # Warm up
                 benchmark_compress $version->{dir}, $input, $level, 1;
@@ -144,7 +147,7 @@ sub benchmark_all {
                 $results{$id}{input}{size} = (-s $input);
 
                 for (1..$runs) {
-                    my $result = benchmark_compress $version->{dir}, $input, $level, $run_size;
+                    my $result = benchmark_compress $version->{dir}, $input, $level, $compress_iters;
                     push @{$results{$id}{output}{"$version->{id}"}}, $result;
                 }
             }
@@ -166,13 +169,13 @@ sub benchmark_all {
     for my $version (@versions) {
         for my $input (glob "corpus/[a-z]*") {
             $input =~ m{.*/(.*)} or next;
-            my $id = "decompress $1";
+            my $id = "decompress $1 (x $decompress_iters)";
 
             # Warm up
             benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, 1;
 
             for (1..$runs) {
-                my $result = benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, $run_size;
+                my $result = benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, $decompress_iters;
                 push @{$results{$id}{output}{"$version->{id}"}}, $result;
             }
         }
@@ -273,7 +276,8 @@ sub main {
              "output-format=s" => \$output_format,
              "read-json=s" => \$read_json,
              "recompile" => \$recompile,
-             "run-size=i" => \$run_size,
+             "compress-iters=i" => \$compress_iters,
+             "decompress-iters=i" => \$decompress_iters,
              "runs=i"  => \$runs,
         )) {
         exit(1);
