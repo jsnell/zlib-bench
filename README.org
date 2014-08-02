@@ -55,6 +55,7 @@ name of the file is used as the benchmark id in reports.
   --read-json=...        Don't run benchmarks, but read results from this file
   --recompile            If passed, recompile all zlib versions before test
   --runs=...             Number of runs for each benchmark
+  --quiet                Don't print progress reports to STDERR
 #+END_EXAMPLE
 
 ** Example output

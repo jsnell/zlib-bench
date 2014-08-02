@@ -11,17 +11,18 @@ bench.pl - Benchmark zlib implementations
 bench.pl [options]
 
  Options:
-  --help                 Print a help message
   --compress-iters=...   Number of times each file is compressed in one
                          benchmark run
   --compress-levels=...  Comma-separated list of compression levels to use
   --decompress-iters=... Number of times each file is compressed in one
                          benchmark run
+  --help                 Print a help message
   --output-file=...      File (- for stdout) where results are printed to
   --output-format=...    Format to output results in (pretty, json)
   --read-json=...        Don't run benchmarks, but read results from this file
   --recompile            If passed, recompile all zlib versions before test
   --runs=...             Number of runs for each benchmark
+  --quiet                Don't print progress reports to STDERR
 
 =cut
 
@@ -61,6 +62,14 @@ my $recompile = 0;
 # pprint or json
 my $output_format = "pretty";
 
+# If true, don't print progress info to STDERR
+my $quiet = 0;
+
+sub trace {
+    local $| = 1;
+    print STDERR @_;
+}
+
 sub checkout {
     my ($id, $repository, $commit_or_branch) = @_;
     my $dir = "zlib.$id";
@@ -94,7 +103,9 @@ sub fetch_and_compile_all {
     for my $version (@versions) {
         if ($recompile or
             !-f "$version->{dir}/minigzip64") {
+            trace "Checking out $version->{id}";
             checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
+            trace "Compiling $version->{id}";
             compile $version->{dir};
         }
     }
@@ -141,15 +152,20 @@ sub benchmark_all {
                 $input =~ m{.*/(.*)} or next;
                 my $id = "compress $1 -$level (x $compress_iters)";
 
+                trace "Testing '$id' ";
+
                 # Warm up
                 benchmark_compress $version->{dir}, $input, $level, 1;
 
                 $results{$id}{input}{size} = (-s $input);
 
                 for (1..$runs) {
+                    trace ".";
                     my $result = benchmark_compress $version->{dir}, $input, $level, $compress_iters;
                     push @{$results{$id}{output}{"$version->{id}"}}, $result;
                 }
+
+                trace "\n";
             }
         }
     }
@@ -171,13 +187,20 @@ sub benchmark_all {
             $input =~ m{.*/(.*)} or next;
             my $id = "decompress $1 (x $decompress_iters)";
 
+            if (!$quiet) {
+                trace "Testing '$id' ";
+            }
+
             # Warm up
             benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, 1;
 
             for (1..$runs) {
+                trace ".";
                 my $result = benchmark_decompress $version->{dir}, $compressed{$input}{tmpfile}, $decompress_iters;
                 push @{$results{$id}{output}{"$version->{id}"}}, $result;
             }
+
+            trace "\n";
         }
     }
 
@@ -278,7 +301,8 @@ sub main {
              "recompile" => \$recompile,
              "compress-iters=i" => \$compress_iters,
              "decompress-iters=i" => \$decompress_iters,
-             "runs=i"  => \$runs,
+             "runs=i" => \$runs,
+             "quiet" => \$quiet,
         )) {
         exit(1);
     }
