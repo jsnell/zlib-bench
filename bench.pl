@@ -122,7 +122,7 @@ sub benchmark_compress {
 sub benchmark_decompress {
     my ($zlib_dir, $input, $iters) = @_;
 
-    my $res = benchmark_command "$zlib_dir/minigzip64 < $input", $iters;
+    my $res = benchmark_command "$zlib_dir/minigzip64 -d < $input > /dev/null", $iters;
     delete $res->{size};
 
     return $res;
