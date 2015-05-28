@@ -149,17 +149,19 @@ sub benchmark_all {
     for my $level (@compress_levels) {
         for my $input (glob "corpus/[a-z]*") {
             $input =~ m{.*/(.*)} or next;
-            my $id = "compress $1 -$level (x $compress_iters)";
+            my $id = "compress $1 -$level ($compress_iters iterations)";
             trace "Testing '$id' ";
 
             $results{$id}{input}{size} = (-s $input);
+            $results{$id}{level} = $level;
 
             for (1..$runs) {
                 for my $version (@versions) {
                     trace ".";
 
                     # Warm up
-                    benchmark_compress $version->{dir}, $input, $level, 1;
+                    benchmark_compress $version->{dir}, $input, $level, 1, 1;
+
                     my $result = benchmark_compress $version->{dir}, $input, $level, $compress_iters;
                     push @{$results{$id}{output}{"$version->{id}"}}, $result;
                 }
@@ -169,7 +171,7 @@ sub benchmark_all {
         }
     }
 
-    # Decompression benchmarks. 
+    # Decompression benchmarks.
 
     # First create compressed files.
     my %compressed = ();
@@ -183,8 +185,10 @@ sub benchmark_all {
 
     for my $input (glob "corpus/[a-z]*") {
         $input =~ m{.*/(.*)} or next;
-        my $id = "decompress $1 (x $decompress_iters)";
+        my $id = "decompress $1 ($decompress_iters iterations)";
         trace "Testing '$id' ";
+
+        $results{$id}{level} = '0';
 
         for (1..$runs) {
             for my $version (@versions) {
@@ -229,20 +233,32 @@ sub benchmark_all {
     }
 }
 
-sub pprint {
+sub pprint_text {
     my ($output_file, $input) = @_;
     my @versions = @{$input->{versions}};
     my %results = %{$input->{results}};
 
     local *STDOUT = $output_file;
 
-    printf "%20s ", '';        
+    printf "%20s ", '';
     for my $version (@versions) {
         printf "%-22s ", $version->{id};
     }
 
-    for my $key (sort keys %results) {
+    my $prev_level = undef;
+
+    for my $key (sort {
+                     ($results{$a}{level} // 0) <=> ($results{$b}{level} // 0) or $a cmp $b
+                 } keys %results) {
         my %benchmark = %{$results{$key}};
+        my $level = $benchmark{level} // 0;
+
+        if (!defined $prev_level or
+            $level != $prev_level) {
+            print "\n";
+        }
+        $prev_level = $level;
+
         printf "\n%s", $key;
 
         if ($benchmark{input}{size}) {
@@ -266,12 +282,78 @@ sub pprint {
             printf("%5.2f \x{00b1} %4.2f (%6.2f%%) ",
                    $time,
                    $error,
-                   $time / $basetime * 100, 
+                   $time / $basetime * 100,
                    '');
         }
     }
 
     printf "\n";
+}
+
+sub pprint_html {
+    my ($output_file, $input) = @_;
+    my @versions = @{$input->{versions}};
+    my %results = %{$input->{results}};
+
+    local *STDOUT = $output_file;
+
+    sub print_table_header {
+        print "\n<table>";
+        print "  <tr>";
+        print "    <td>";
+        for my $version (@versions) {
+            print "<td colspan=2>$version->{id}";
+        }
+    }
+
+    my $prev_level = 999;
+
+    for my $key (sort {
+                     ($results{$a}{level} // 0) <=> ($results{$b}{level} // 0) or $a cmp $b
+                 } keys %results) {
+        my %benchmark = %{$results{$key}};
+
+        if (($benchmark{level} // 0) != $prev_level) {
+            if ($benchmark{level}) {
+                print "</table>\n<h4>Compression level $benchmark{level}</h4>";
+            } else {
+                print "</table>\n<h4>Decompression</h4>";
+            }
+            print_table_header;
+            $prev_level = ($benchmark{level} // 0);
+        }
+
+        my $key2 = $key;
+        $key2 =~ s/x (\d+)/$1 iterations/;
+        print "  <tr><td colspan=4><b>$key2</b>";
+
+        if ($benchmark{input}{size}) {
+            print "  <tr>";
+            print "    <td style='padding-left: 2ex;'>Compression ratio</td>";
+            for my $version (@versions) {
+                my $id = $version->{id};
+                my $output_size = $benchmark{output}{$id}{output_size}{mean};
+                my $input_size = $benchmark{input}{size};
+                printf("<td colspan=2>%.2f",
+                       $output_size / $input_size);
+            }
+        }
+
+        print "  <tr>";
+        print "    <td style='padding-left: 2ex; width: 20ex;'>Execution time</td>";
+        for my $version (@versions) {
+            my $id = $version->{id};
+            my $time = $benchmark{output}{$id}{time}{mean};
+            my $error = $benchmark{output}{$id}{time}{error};
+            my $basetime = $benchmark{output}{'baseline'}{time}{mean};
+            printf("<td>%.2fs&plusmn;%.2f<td style='padding-right: 2ex'>(%d%%)",
+                   $time,
+                   $error,
+                   ($time / $basetime) * 100);
+        }
+    }
+
+    printf "</table>\n";
 }
 
 sub main {
@@ -303,7 +385,7 @@ sub main {
         exit(1);
     }
 
-    die "--output-format should be 'pretty' or 'json'" if $output_format !~ /^(pretty)|(json)$/;
+    die "--output-format should be 'pretty' or 'json'" if $output_format !~ /^(pretty|json|html)$/;
 
     $output_file //= *STDOUT;
     binmode($output_file, ":utf8");
@@ -320,7 +402,9 @@ sub main {
     }
 
     if ($output_format eq 'pretty') {
-        pprint $output_file, $results;
+        pprint_text $output_file, $results;
+    } elsif ($output_format eq 'html') {
+        pprint_html $output_file, $results;
     } else {
         print $output_file encode_json $results;
     }
