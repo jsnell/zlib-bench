@@ -43,7 +43,7 @@ my @versions = (
     { id => 'baseline', repository => 'https://github.com/madler/zlib.git', commit_or_branch => '50893291621658f355bc5b4d450a8d06a563053d' },
     { id => 'cloudflare', repository => 'https://github.com/cloudflare/zlib.git', commit_or_branch => 'a80420c63532c25220a54ea0980667c02303460a' },
     { id => 'intel', repository => 'https://github.com/jtkukunas/zlib.git', commit_or_branch => 'e176b3c23ace88d5ded5b8f8371bbab6d7b02ba8'},
-    { id => 'zlib-ng', repository => 'git@github.com:Dead2/zlib-ng.git', commit_or_branch => '4b1728a261e32e08bc5403f391ba65bfe5f4ba57'},
+    { id => 'zlib-ng', repository => 'git@github.com:Dead2/zlib-ng.git', commit_or_branch => '4b1728a261e32e08bc5403f391ba65bfe5f4ba57', CONFIGURE_FLAGS => '--zlib-compat'},
 );
 
 # Compression levels to benchmark
@@ -90,8 +90,8 @@ sub checkout {
 }
 
 sub compile {
-    my ($dir) = @_;
-    system "cd $dir && ./configure && make";
+    my ($dir, $config) = @_;
+    system "cd $dir && ./configure $config->{CONFIGURE_FLAGS} && make";
 }
 
 sub init {
@@ -107,7 +107,7 @@ sub fetch_and_compile_all {
             trace "Checking out $version->{id}\n";
             checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
             trace "Compiling $version->{id}\n";
-            compile $version->{dir};
+            compile $version->{dir}, $version;
         }
     }
 }
