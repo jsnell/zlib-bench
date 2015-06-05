@@ -41,8 +41,9 @@ use Statistics::Descriptive;
 # Versions to test
 my @versions = (
     { id => 'baseline', repository => 'https://github.com/madler/zlib.git', commit_or_branch => '50893291621658f355bc5b4d450a8d06a563053d' },
-    { id => 'cloudflare', repository => 'https://github.com/cloudflare/zlib.git', commit_or_branch => '8fe233dbf33766ed73940baebdb901de8257c59c' },
+    { id => 'cloudflare', repository => 'https://github.com/cloudflare/zlib.git', commit_or_branch => 'a80420c63532c25220a54ea0980667c02303460a' },
     { id => 'intel', repository => 'https://github.com/jtkukunas/zlib.git', commit_or_branch => 'e176b3c23ace88d5ded5b8f8371bbab6d7b02ba8'},
+    { id => 'zlib-ng', repository => 'git@github.com:Dead2/zlib-ng.git', commit_or_branch => '4b1728a261e32e08bc5403f391ba65bfe5f4ba57'},
 );
 
 # Compression levels to benchmark
@@ -75,7 +76,7 @@ sub checkout {
     my $dir = "zlib.$id";
 
     if (-d $dir) {
-        if (system "cd $dir && git reset --hard $commit_or_branch") {
+        if (system "cd $dir && git fetch && git reset --hard $commit_or_branch") {
             die "'git checkout' of '$commit_or_branch' in $dir failed\n";
         }
     } else {
