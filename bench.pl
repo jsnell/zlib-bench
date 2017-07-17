@@ -91,7 +91,9 @@ sub checkout {
 
 sub compile {
     my ($dir, $config) = @_;
-    system "cd $dir && ./configure $config->{CONFIGURE_FLAGS} && make";
+    if (system "cd $dir && ./configure $config->{CONFIGURE_FLAGS} && make") {
+        die "compilation of $dir failed\n";
+    }
 }
 
 sub init {
@@ -103,7 +105,7 @@ sub init {
 sub fetch_and_compile_all {
     for my $version (@versions) {
         if ($recompile or
-            !-f "$version->{dir}/minigzip64") {
+            !-f "$version->{dir}/minigzip") {
             trace "Checking out $version->{id}\n";
             checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
             trace "Compiling $version->{id}\n";
@@ -131,13 +133,13 @@ sub benchmark_command {
 sub benchmark_compress {
     my ($zlib_dir, $input, $level, $iters) = @_;
 
-    benchmark_command "$zlib_dir/minigzip64 -$level < $input", $iters;
+    benchmark_command "$zlib_dir/minigzip -$level < $input", $iters;
 }
 
 sub benchmark_decompress {
     my ($zlib_dir, $input, $iters) = @_;
 
-    my $res = benchmark_command "$zlib_dir/minigzip64 -d < $input > /dev/null", $iters;
+    my $res = benchmark_command "$zlib_dir/minigzip -d < $input > /dev/null", $iters;
     delete $res->{size};
 
     return $res;
@@ -180,7 +182,7 @@ sub benchmark_all {
         my ($fh) = File::Temp->new();
         $compressed{$input}{fh} = $fh;
         $compressed{$input}{tmpfile} = $fh->filename;
-        print $fh qx"$versions[0]{dir}/minigzip64 < $input";
+        print $fh qx"$versions[0]{dir}/minigzip < $input";
         close $fh;
     }
 
