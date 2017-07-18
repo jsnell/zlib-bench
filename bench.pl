@@ -40,10 +40,10 @@ use Statistics::Descriptive;
 
 # Versions to test
 my @versions = (
-    { id => 'baseline', repository => 'https://github.com/madler/zlib.git', commit_or_branch => '50893291621658f355bc5b4d450a8d06a563053d' },
+    { id => 'baseline', repository => 'https://github.com/madler/zlib.git', commit_or_branch => 'cacf7f1d4e3d44d871b605da3b647f07d718623f' },
     { id => 'cloudflare', repository => 'https://github.com/cloudflare/zlib.git', commit_or_branch => 'a80420c63532c25220a54ea0980667c02303460a' },
     { id => 'intel', repository => 'https://github.com/jtkukunas/zlib.git', commit_or_branch => 'e176b3c23ace88d5ded5b8f8371bbab6d7b02ba8'},
-    { id => 'zlib-ng', repository => 'git@github.com:Dead2/zlib-ng.git', commit_or_branch => '4b1728a261e32e08bc5403f391ba65bfe5f4ba57', CONFIGURE_FLAGS => '--zlib-compat'},
+    { id => 'zlib-ng', repository => 'https://github.com/Dead2/zlib-ng.git', commit_or_branch => '75e76eebeb08dccea44a1d9933699f7f9a0a97ea', CONFIGURE_FLAGS => '--zlib-compat'},
 );
 
 # Compression levels to benchmark
@@ -91,7 +91,9 @@ sub checkout {
 
 sub compile {
     my ($dir, $config) = @_;
-    system "cd $dir && ./configure $config->{CONFIGURE_FLAGS} && make";
+    if (system "cd $dir && ./configure $config->{CONFIGURE_FLAGS} && make") {
+        die "compilation of $dir failed\n";
+    }
 }
 
 sub init {
@@ -103,7 +105,7 @@ sub init {
 sub fetch_and_compile_all {
     for my $version (@versions) {
         if ($recompile or
-            !-f "$version->{dir}/minigzip64") {
+            !-f "$version->{dir}/minigzip") {
             trace "Checking out $version->{id}\n";
             checkout $version->{id}, $version->{repository}, $version->{commit_or_branch};
             trace "Compiling $version->{id}\n";
@@ -131,13 +133,13 @@ sub benchmark_command {
 sub benchmark_compress {
     my ($zlib_dir, $input, $level, $iters) = @_;
 
-    benchmark_command "$zlib_dir/minigzip64 -$level < $input", $iters;
+    benchmark_command "$zlib_dir/minigzip -$level < $input", $iters;
 }
 
 sub benchmark_decompress {
     my ($zlib_dir, $input, $iters) = @_;
 
-    my $res = benchmark_command "$zlib_dir/minigzip64 -d < $input > /dev/null", $iters;
+    my $res = benchmark_command "$zlib_dir/minigzip -d < $input > /dev/null", $iters;
     delete $res->{size};
 
     return $res;
@@ -180,7 +182,7 @@ sub benchmark_all {
         my ($fh) = File::Temp->new();
         $compressed{$input}{fh} = $fh;
         $compressed{$input}{tmpfile} = $fh->filename;
-        print $fh qx"$versions[0]{dir}/minigzip64 < $input";
+        print $fh qx"$versions[0]{dir}/minigzip < $input";
         close $fh;
     }
 

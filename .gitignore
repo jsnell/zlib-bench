@@ -1,0 +1,6 @@
+.DS_Store
+results.json
+zlib.baseline/
+zlib.intel/
+zlib.cloudflare/
+zlib.zlib-ng/
